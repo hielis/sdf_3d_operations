@@ -1,6 +1,3 @@
-open Kernel.Field
-open Kernel.FieldOperation
-
 module type VectorType = sig
   type vect
   type t = vect
@@ -63,16 +60,19 @@ end = struct
           else int_of_float (z /. (abs_float z)));;
 end
 
-module type MeshType = sig
-  type v
+module type MeshType = functor  (V : VectorType) -> sig
   type triangle
   type mesh
-  val get_normal : triangle -> v
-  val get_vertices : triangle -> v * v * v
+  val mesh : triangle list -> mesh
+  val triangle : V.vect -> V.vect -> V.vect -> triangle
+  val mesh : triangle list -> mesh
+  val get_normal : triangle -> V.vect
+  val get_vertices : triangle -> V.vect * V.vect * V.vect
   val get_triangles_list : mesh -> triangle list
-  val get_vertices_list : mesh -> v list
-  val get_normals_list : mesh -> v list
+  val get_vertices_list : mesh -> V.vect list
+  val get_normals_list : mesh -> V.vect list
 end
+
 
 module type SetType = sig
   type elt
@@ -81,9 +81,9 @@ module type SetType = sig
   val empty : t
   val fold : (elt -> 'a -> 'a) -> t -> 'a -> 'a
 end
-module B = Set.Make(Vector)
+module SetVector = Set.Make(Vector)
 
-module MeshMaker = functor (V : VectorType) -> functor (S : SetType) -> struct 
+module MeshMaker = functor (V : VectorType) -> functor (S : SetType) -> struct
 (*
                 sig
                 type v
@@ -96,10 +96,14 @@ module MeshMaker = functor (V : VectorType) -> functor (S : SetType) -> struct
                 val get_normals_list : mesh -> v list
               end = struct
 *)
-    type v = V.vect
-    type triangle = v * v * v * v
+    type triangle = V.vect * V.vect * V.vect * V.vect
     type mesh = triangle list
-    let get_normal = function (a, b, c, d) -> a;;
+    let mesh l = l;;
+    let compute_normal v1 v2 v3 = V.vect 0.0 0.0 0.0;;
+    let triangle v1 v2 v3 =
+      let vn = compute_normal v1 v2 v3 in
+      (v1, v2, v3, vn);;
+    let get_normal ((a, b, c, d) : triangle) =  a;;
     let get_vertices = function (a, b, c, d) -> (b, c, d);;
     let get_triangles_list m =
       let rec aux acc = function [] -> [] | a::tl -> aux (a::acc) tl in
@@ -114,5 +118,5 @@ module MeshMaker = functor (V : VectorType) -> functor (S : SetType) -> struct
     let get_normals_list m = List.map (get_normal) (get_triangles_list m);;
   end
 
-module MeshMake = functor (V:VectorType) -> MeshMaker (Vector) (Set.Make(Vector))
-module Mesh : MeshType = MeshMake(Vector)
+module MeshMake : MeshType = functor (V:VectorType) -> MeshMaker (V) (Set.Make(V))
+module Mesh = MeshMake(Vector)

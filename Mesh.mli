@@ -14,7 +14,6 @@ module type VectorType = sig
   val compare : vect -> vect -> int
 end
 
-
 module Vector : sig
   type vect
   type t = vect
@@ -32,26 +31,37 @@ module Vector : sig
   val compare : vect -> vect -> int
 end
 
-module type MeshType = sig
-  type v
+module type MeshType = functor  (V : VectorType) -> sig
   type triangle
   type mesh
-  val get_normal : triangle -> v
-  val get_vertices : triangle -> v * v * v
+  val mesh : triangle list -> mesh
+  val triangle : V.vect -> V.vect -> V.vect -> triangle
+  val mesh : triangle list -> mesh
+  val get_normal : triangle -> V.vect
+  val get_vertices : triangle -> V.vect * V.vect * V.vect
   val get_triangles_list : mesh -> triangle list
-  val get_vertices_list : mesh -> v list
-  val get_normals_list : mesh -> v list
-end
-module MeshMaker = functor (V : VectorType) -> functor (S : SetType) -> sig
-  type v
-  type triangle
-  type mesh
-  val get_normal : triangle -> v
-  val get_vertices : triangle -> v * v * v
-  val get_triangles_list : mesh -> triangle list
-  val get_vertices_list : mesh -> triangle list
-  val get_normals_list : mesh -> v list
+  val get_vertices_list : mesh -> V.vect list
+  val get_normals_list : mesh -> V.vect list
 end
 
-module MeshMake = functor (V:VectorType) -> MeshMaker (Vector) (Set.Make(Vector))
-module Mesh : MeshType = MeshMake(Vector)
+module type SetType = sig
+  type elt
+  type t
+  val add : elt -> t -> t
+  val empty : t
+  val fold : (elt -> 'a -> 'a) -> t -> 'a -> 'a
+end
+
+module MeshMake : MeshType
+
+module Mesh : sig
+    type triangle = MeshMake(Vector).triangle
+    type mesh = MeshMake(Vector).mesh
+    val triangle : Vector.vect -> Vector.vect -> Vector.vect -> triangle
+    val mesh : triangle list -> mesh
+    val get_normal : triangle -> Vector.vect
+    val get_vertices : triangle -> Vector.vect * Vector.vect * Vector.vect
+    val get_triangles_list : mesh -> triangle list
+    val get_vertices_list : mesh -> Vector.vect list
+    val get_normals_list : mesh -> Vector.vect list
+  end
