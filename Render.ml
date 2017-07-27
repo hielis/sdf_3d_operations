@@ -40,19 +40,24 @@ end = struct
     let rec get_grid acc i j k =
       let eval i j k = (Field.eval f ((float_of_int i) *.h_x +. o_x) ((float_of_int j) *.h_y +. o_y) ((float_of_int k) *.h_z +. o_z))
       in
-
-      if (i == r_x) then get_grid ((eval i j k)::acc)  0 (j + 1) k
-      else if (j == r_y) then get_grid ((eval i j k)::acc) 0 0 (k + 1)
-      else if (k == r_z) then  (List.rev acc)
+      if (i == (r_x - 1)) then get_grid ((eval i j k)::acc)  0 (j + 1) k
+      else if (j == (r_y - 1)) then get_grid ((eval i j k)::acc) 0 0 (k + 1)
+      else if (k == (r_z - 1)) then  (List.rev acc)
       else get_grid ((eval i j k)::acc) (i + 1) j  k
     in
 
-    let callable_grid =
-      let a = Array.of_list (get_grid [] 0 0 0) in
-      (fun (w, b, c) -> a.(w + r_x * b + r_y * r_x * c))
+      let ll = Array.of_list (get_grid [] 0 0 0) in
+      let n = Array.length ll in
+
+    let callable_grid (a, b, c) =
+      let p = (a + r_x * b + r_y * r_x * c) in
+      if (p < n) then (
+        ll.(p))
+      else failwith "Out of bounds"
     in
 
     let interpolate p1 p2 v1 v2 =
+       print_string "interpolate";
       Vector.add (p1) (Vector.scal_mult ((iso -. v1) /. (v2 -. v1)) (Vector.sub p2 p1))
     in
 
@@ -60,9 +65,14 @@ end = struct
       let rec aux i acc = function a::tl when  (a < iso) -> aux (i + 1) (acc + (1 lsl i)) tl
                                  | a::tl -> aux (i + 1) (acc) tl
                                  | [] -> acc in
-      let rec aux2 acc = function a::tl -> aux2 ((callable_grid a)::acc) tl
+      let rec aux2 acc = function a::tl -> let h, hh,hhh = a in
+                                           print_int h;
+                                           print_int hh;
+                                           print_int hhh;
+                                           aux2 ((callable_grid a)::acc) tl
                                 | [] -> List.rev acc in
-      aux 0 0 (aux2 [] (Box.vertices_list cube))
+      let n = aux 0 0 (aux2 [] (Box.vertices_list cube)) in
+      n
     in
 
     let to_vect (cx, cy, cz) = Vector.vect ((float_of_int cx) *.h_x +. o_x) ((float_of_int cy) *.h_y +. o_y) ((float_of_int cz) *.h_z +. o_z) in
@@ -82,27 +92,33 @@ end = struct
       (aux 0 [] edge_index 12)
     in
 
-
     let compute_triangles_list l cube =
       let cube_index = compute_cube_index cube in
       let cube_vertices = Box.vertices_list cube in
       let vertices = Array.of_list (compute_vertices_list cube_index cube_vertices) in
       let vlist = Tables.tri_table.(cube_index) in
+      print_int (Array.length vertices);
       let aux2 a b c = Mesh.triangle vertices.(a) vertices.(b) vertices.(c) in
       let rec aux acc = function a::b::c::tl when not (a == -1) -> aux ((aux2 a b c)::acc) tl
                            |_ -> acc
       in
+      print_string "pipiou";
       aux l vlist
     in
 
     let rec mmc acc i j k =
-      let cube = Box.box (0, 0, 0) (i, j , k) in
-      if (i == r_x) then mmc (compute_triangles_list acc cube) 0 (j + 1) k
-      else if (j == r_y) then mmc (compute_triangles_list acc cube) 0 (j + 1) k
-      else if (j == r_y) then mmc (compute_triangles_list acc cube) 0 0 (k + 1)
-      else if (k == r_z) then  (List.rev acc)
+      let cube = Box.box (0, 0, 0) (i, j, k) in
+      if (i == (r_x - 1)) then mmc (compute_triangles_list acc cube) 0 (j + 1) k
+      else if (j == (r_y - 1)) then mmc (compute_triangles_list acc cube) 0 0 (k + 1)
+      else if (k == (r_z - 2)) then  (List.rev acc)
       else mmc (compute_triangles_list acc cube) (i + 1) j  k
     in
     Mesh.mesh (mmc [] 0 0 0)
 ;;
+
+
+let sphere_func x y z = (x *. x +. y *. y +. z *. z -. 1.0);;
+let sphere_bound = (2.0, 2.0, 2.0);;
+
+let sphere = Field.field sphere_func sphere_bound;;
 end
