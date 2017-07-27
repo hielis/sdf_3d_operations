@@ -2,6 +2,7 @@ open Kernel
 open Mesh
 open Tables
 
+
 module Box : sig
   type 'a box = {x : 'a * 'a ; y : 'a * 'a ; z : 'a * 'a}
   val box : ('a * 'a * 'a) -> ('a * 'a * 'a) -> 'a box
@@ -19,6 +20,7 @@ module SdfRenderMaker : sig
   val export_to_obj : Mesh.mesh -> string
   val render_a_mesh : float -> Field.t -> (int * int * int) -> float Box.box -> Mesh.mesh
 end = struct
+
   let export_to_obj m : string =
     let aux v =
       let x, y, z = Vector.get_x v, Vector.get_y v, Vector.get_z v in
@@ -30,13 +32,18 @@ end = struct
     in
     String.concat "\n" (List.map aux1 (Mesh.get_triangles_list m))
   ;;
+
   let render_a_mesh iso f res box =
+
     let r_x, r_y, r_z = res in
+
     let step (a, d) r =
       (d -. a) /. (float_of_int r)
     in
+
     let h_x, h_y, h_z = step box.Box.x r_x, step box.Box.y r_y, step box.Box.z r_z in
     let (o_x,_), (o_y, _), (o_z, _) = box.Box.x, box.Box.y, box.Box.z in
+
     let rec get_grid acc i j k =
       let eval i j k = (Field.eval f ((float_of_int i) *.h_x +. o_x) ((float_of_int j) *.h_y +. o_y) ((float_of_int k) *.h_z +. o_z))
       in
@@ -46,18 +53,33 @@ end = struct
       else get_grid ((eval i j k)::acc) (i + 1) j  k
     in
 
-      let ll = Array.of_list (get_grid [] 0 0 0) in
-      let n = Array.length ll in
+    let get_array_of_values =
+      let a = Array.make (r_x * r_z * r_y + 200) 0.0 in
+      print_int (Array.length a);
+      let l = ref [] in
+      for k = 0 to (r_x - 1) do
+        for j = 0 to (r_y - 1) do
+          for i = 0 to (r_z - 1) do
+            (*print_int (i + (j * r_x) + (k * r_y * r_x);*)
+            try a.(i + (j * r_x) + (k * r_y * r_x)) <- (Field.eval f ((float_of_int i) *.h_x +. o_x) ((float_of_int j) *.h_y +. o_y) ((float_of_int k) *.h_z +. o_z)) with Invalid_argument(s) -> (print_float ((float_of_int i) *.h_x +. o_x)); print_float ((float_of_int j) *.h_y +. o_y) ;print_float ((float_of_int k) *.h_z +. o_z) ; print_string " | ";
+            done
+        done
+      done;
+      print_string "Grid is computed \n";
+      a
+    in
+
+    let elements = get_array_of_values in
+      let n = Array.length elements in
 
     let callable_grid (a, b, c) =
       let p = (a + r_x * b + r_y * r_x * c) in
       if (p < n) then (
-        ll.(p))
+        elements.(p))
       else failwith "Out of bounds"
     in
 
-    let interpolate p1 p2 v1 v2 =
-       print_string "interpolate";
+    let interpolate p1 p2 v1 v2=
       Vector.add (p1) (Vector.scal_mult ((iso -. v1) /. (v2 -. v1)) (Vector.sub p2 p1))
     in
 
@@ -65,10 +87,7 @@ end = struct
       let rec aux i acc = function a::tl when  (a < iso) -> aux (i + 1) (acc + (1 lsl i)) tl
                                  | a::tl -> aux (i + 1) (acc) tl
                                  | [] -> acc in
-      let rec aux2 acc = function a::tl -> let h, hh,hhh = a in
-                                           print_int h;
-                                           print_int hh;
-                                           print_int hhh;
+      let rec aux2 acc = function a::tl ->
                                            aux2 ((callable_grid a)::acc) tl
                                 | [] -> List.rev acc in
       let n = aux 0 0 (aux2 [] (Box.vertices_list cube)) in
@@ -97,12 +116,10 @@ end = struct
       let cube_vertices = Box.vertices_list cube in
       let vertices = Array.of_list (compute_vertices_list cube_index cube_vertices) in
       let vlist = Tables.tri_table.(cube_index) in
-      print_int (Array.length vertices);
       let aux2 a b c = Mesh.triangle vertices.(a) vertices.(b) vertices.(c) in
       let rec aux acc = function a::b::c::tl when not (a == -1) -> aux ((aux2 a b c)::acc) tl
                            |_ -> acc
       in
-      print_string "pipiou";
       aux l vlist
     in
 

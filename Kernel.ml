@@ -40,10 +40,17 @@ end = struct
   let field f b = (f, b);;
 
   let interpolate_field = function (a, (res_x, res_y, res_z), (o_x, o_y, o_z), d) ->
+                                   print_char '0';
                                    let boundaries = (abs_float (d *. (float_of_int res_x) -. o_x), abs_float (d *. (float_of_int res_y) -. o_y), abs_float (d *. (float_of_int res_z) -. o_z))
                                    and max_a = res_x * res_y * res_z in
-                                   let this_grid x y z = match (x + res_x * y + res_x * res_y *  z) with  p when (p > max_a) -> failwith "Pointer is Out of Bound"
-                                     |n -> a.(n) in
+                                   let this_grid x y z = print_string "GRID \n";
+                                     match (x + res_x * y + res_x * res_y *  z) with  p when (p > max_a) || (p < 0) -> constant
+                                     |n -> try a.(n) with Invalid_argument(s) -> 
+                                             print_int (Array.length a);
+                                             print_string "|-- --|";
+                                             print_int n;
+                                             print_string "|--| |--|";
+                                             failwith s in
                                    let f x y z =
                                      let x_p = int_of_float (floor ((x -. o_x) /. d))
                                      and y_p = int_of_float (floor ((y -. o_y) /. d))
@@ -56,9 +63,10 @@ end = struct
                                      and z_pp = z_p + 1 in
                                      let i1  = [|this_grid x_p y_p z_p; this_grid x_pp y_p z_p; this_grid x_p y_pp z_p; this_grid x_p y_p z_pp; this_grid x_pp y_pp z_p; this_grid x_pp y_p z_pp; this_grid x_p y_pp z_pp; this_grid x_pp y_pp z_pp|] in
                                      let h = (1.0 -. x_d) in
+                                     print_char 'A';
                                      let i2 = [|i1.(0) *. h +. i1.(1) *. x_d; i1.(3) *. h +. i1.(5) *. x_d; i1.(2) *. h +. i1.(4) *. x_d; i1.(6) *. h +. i1.(7) *. x_d|] in
                                      let hp = (1.0 -. y_d) in
-                                     let i3 = [|hp *. i2.(0) +. i2.(2) *. y_d ;hp *. i2.(1) +. i2.(3) *. y_d|] in
+                                     let i3 = [|hp *. i2.(0) +. i2.(2) *. y_d; hp *. i2.(1) +. i2.(3) *. y_d|] in
                                      (i3.(0) *. (1.0 -. z_d) +. i3.(1) *. z_d)
                                    in
                                    field f boundaries
