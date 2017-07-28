@@ -21,16 +21,44 @@ module SdfRenderMaker : sig
   val render_a_mesh : float -> Field.t -> (int * int * int) -> float Box.box -> Mesh.mesh
 end = struct
 
-  let export_to_obj m : string =
-    let aux v =
+  let export_to_obj m =
+    let raw_vertices = Mesh.get_vertices_list m in
+    let triangles = Mesh.get_triangles_list m in
+    print_int (List.length triangles);
+    let sort l =
+      let rec split acc1 acc2 = function [] -> (acc1, acc2) | a::b::tl -> split (a::acc1) (b::acc2) tl | a::[] -> (acc1, a::acc2) in
+      let rec merge acc l1 l2 = match l1, l2 with [], [] -> List.rev acc | [], a::tl -> merge (a::acc) [] tl | a::tl, [] -> merge (a::acc) [] tl
+                                              |a::tl1, b::tl2 when ((Vector.compare a b) > 0)-> merge (a::acc) tl1 l2
+                                              |a::tl1, b::tl2 when ((Vector.compare a b) == 0)-> merge (a::acc) tl1 tl2
+                                              |a::tl1, b::tl2 -> merge (b::acc) l1 tl2
+      in
+      let rec aux = function [] -> [] | a::[] -> a::[] |a::b::[] when ((Vector.compare a b) > 0)-> a::b::[]
+                             |a::b::[] when ((Vector.compare a b) < 0)-> b::a::[]
+                             |a::b::[] -> a::[]
+                             |l -> let l1, l2 = split [] [] l in
+                                   merge [] (aux l1) (aux l2)
+      in
+      (aux l)
+    in
+
+    let vertices = sort raw_vertices in
+    let triangle_to_string i acc t =
+      let a, b, c = Mesh.get_vertices t in
+      let lp = List.map string_of_int ([i + 1; i + 2; i + 3]) in
+      (String.concat " " ("f "::lp), a::b::c::acc, i + 3)
+    in
+
+    let vertice_to_string v =
       let x, y, z = Vector.get_x v, Vector.get_y v, Vector.get_z v in
-      (String.concat " " ["v" ; string_of_float x; string_of_float y; string_of_float z])
+      String.concat " " ("v "::(List.map string_of_float [x; y; z]))
     in
-    let aux1 (t : Mesh.triangle) =
-      let v1, v2, v3 = Mesh.get_vertices t in
-      (String.concat "\n" [aux v1; aux v2; aux v3])
+    
+    let rec loop i acc1 acc2 = function [] -> (List.rev acc2, List.rev acc1)
+                            |a::tl -> let s, l, j = triangle_to_string i acc2 a in
+                                      loop j (s::acc1) l tl
     in
-    String.concat "\n" (List.map aux1 (Mesh.get_triangles_list m))
+    let l1, l2 = loop 0 [] [] triangles in
+    String.concat "\n \n" [String.concat "\n" (List.map vertice_to_string l1); String.concat "\n" l2]
   ;;
 
   let render_a_mesh iso f res box =
@@ -136,6 +164,6 @@ end = struct
 
 let sphere_func x y z = (x *. x +. y *. y +. z *. z -. 1.0);;
 let sphere_bound = (2.0, 2.0, 2.0);;
-
 let sphere = Field.field sphere_func sphere_bound;;
+
 end

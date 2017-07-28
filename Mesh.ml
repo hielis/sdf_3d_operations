@@ -14,7 +14,6 @@ module type VectorType = sig
   val compare : vect -> vect -> int
 end
 
-
 module Vector : sig
   type vect
   type t = vect
@@ -73,7 +72,6 @@ module type MeshType = functor  (V : VectorType) -> sig
   val get_normals_list : mesh -> V.vect list
 end
 
-
 module type SetType = sig
   type elt
   type t
@@ -106,7 +104,7 @@ module MeshMaker = functor (V : VectorType) -> functor (S : SetType) -> struct
     let get_normal ((a, b, c, d) : triangle) =  a;;
     let get_vertices = function (a, b, c, d) -> (b, c, d);;
     let get_triangles_list m =
-      let rec aux acc = function [] -> [] | a::tl -> aux (a::acc) tl in
+      let rec aux acc = function [] -> acc | a::tl -> aux (a::acc) tl in
       aux [] m;;
     let get_vertices_list m =
       let rec aux s = function t::tl -> let a, b, c = get_vertices t in
