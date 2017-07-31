@@ -1,10 +1,18 @@
+
+module Box : sig
+  type 'a box = {x : 'a * 'a ; y : 'a * 'a ; z : 'a * 'a}
+  val box : ('a * 'a * 'a) -> ('a * 'a * 'a) -> 'a box
+  val vertices_list : 'a box -> ('a * 'a * 'a) list
+  val max_box : 'a box -> 'a box -> 'a box
+end
+
 module type SignedDistanceFunction = sig
   type v
   type func
   type bound
   type t
   val eval : t -> float -> float -> float -> v
-  val boundaries : t -> float * float * float
+  val boundaries : t -> float Box.box
   val field : func -> bound -> t
 end
 
@@ -15,8 +23,8 @@ module Field : sig
   type t = func * bound
   type grid = (v array) * (int * int * int) * (float * float * float) * float
   val eval : t -> (float -> float -> float -> v)
-  val boundaries : t -> float * float * float
-  val field : (float -> float -> float -> v) -> (float * float * float) -> t
+  val boundaries : t -> float Box.box
+  val field : (float -> float -> float -> v) -> (float Box.box) -> t
   val interpolate_field : grid -> t
   val use_a_function_left : (v -> v) -> t -> t
   val use_a_function_right : ((float*float*float) -> (float*float*float)) -> ((float * float * float) -> (float * float * float)) -> t -> t

@@ -2,19 +2,6 @@ open Tables
 open Kernel
 open Mesh
 
-module Box : sig
-  type 'a box = {x : 'a * 'a ; y : 'a * 'a ; z : 'a * 'a}
-  val box : ('a * 'a * 'a) -> ('a * 'a * 'a) -> 'a box
-  val vertices_list : 'a box -> ('a * 'a * 'a) list
-end  = struct
-  type 'a box = {x : 'a * 'a ; y : 'a * 'a ; z : 'a * 'a}
-  let vertices_list box =
-    let (xmax, xmin), (ymax, ymin), (zmin, zmax) = box.x, box.y, box.z in
-    [(xmin, ymin, zmin);(xmin, ymax, zmin); (xmax, ymax, zmin); (xmax, ymin, zmin);
-    (xmin, ymin, zmax);(xmin, ymax, zmax); (xmax, ymax, zmax); (xmax, ymin, zmax)];;
- let box (a, b, c) (d, e, f) = {x = (a, d); y = (b,e); z = (c, f)};;
-end
-
 module SdfRenderMaker : sig
   val export_to_obj : Mesh.mesh -> string
   val render_a_mesh : float -> Field.t -> (int * int * int) -> float Box.box -> Mesh.mesh
@@ -140,23 +127,8 @@ end = struct
     Mesh.mesh (List.fold_left f [] (List.rev (make_list_of_cubes 1)))
 ;;
 
-(*
+
 Tables.tri_table;;
-let sphere_func x y z = (x *. x +. y *. y +. z *. z -. 1.0);;
-let sphere_bound = (2.0, 2.0, 2.0);;
-let sphere = Field.field sphere_func sphere_bound;;
-let res = (100, 100, 100);;
-let box = Box.box (-.10.0,-. 10.0, -. 10.0) ( 10.0, 10.0, 10.0);;
-let i = 7;;
-let cube = Box.box (i, i, i) (i + 2, i + 2, i + 2);;
-let mesh_sphere = render_a_mesh 0.0 sphere res box;;
-let obj = export_to_obj mesh_sphere;;
-open Printf
-let oc = open_out "test2.obj";;
-fprintf oc "%s" obj;;
-  close_out oc
-;;
-Field.eval sphere 0. 0. 0.;;
-*)
+
 end
 
