@@ -1,7 +1,6 @@
+open Tables
 open Kernel
 open Mesh
-open Tables
-
 
 module Box : sig
   type 'a box = {x : 'a * 'a ; y : 'a * 'a ; z : 'a * 'a}
@@ -22,43 +21,20 @@ module SdfRenderMaker : sig
 end = struct
 
   let export_to_obj m =
-    let raw_vertices = Mesh.get_vertices_list m in
-    let triangles = Mesh.get_triangles_list m in
-    print_int (List.length triangles);
-    let sort l =
-      let rec split acc1 acc2 = function [] -> (acc1, acc2) | a::b::tl -> split (a::acc1) (b::acc2) tl | a::[] -> (acc1, a::acc2) in
-      let rec merge acc l1 l2 = match l1, l2 with [], [] -> List.rev acc | [], a::tl -> merge (a::acc) [] tl | a::tl, [] -> merge (a::acc) [] tl
-                                              |a::tl1, b::tl2 when ((Vector.compare a b) > 0)-> merge (a::acc) tl1 l2
-                                              |a::tl1, b::tl2 when ((Vector.compare a b) == 0)-> merge (a::acc) tl1 tl2
-                                              |a::tl1, b::tl2 -> merge (b::acc) l1 tl2
-      in
-      let rec aux = function [] -> [] | a::[] -> a::[] |a::b::[] when ((Vector.compare a b) > 0)-> a::b::[]
-                             |a::b::[] when ((Vector.compare a b) < 0)-> b::a::[]
-                             |a::b::[] -> a::[]
-                             |l -> let l1, l2 = split [] [] l in
-                                   merge [] (aux l1) (aux l2)
-      in
-      (aux l)
-    in
+    let vertices = Array.to_list (Mesh.get_vertices_array m) in
+    let faces = Mesh.get_faces_list m in
 
-    let vertices = sort raw_vertices in
-    let triangle_to_string i acc t =
-      let a, b, c = Mesh.get_vertices t in
-      let lp = List.map string_of_int ([i + 1; i + 2; i + 3]) in
-      (String.concat " " ("f "::lp), a::b::c::acc, i + 3)
+    let face_to_string f =
+      let a, b, c = f in
+      let lp = List.map string_of_int ([a; b; c]) in
+      (String.concat " " ("f "::lp))
     in
 
     let vertice_to_string v =
       let x, y, z = Vector.get_x v, Vector.get_y v, Vector.get_z v in
       String.concat " " ("v "::(List.map string_of_float [x; y; z]))
     in
-    
-    let rec loop i acc1 acc2 = function [] -> (List.rev acc2, List.rev acc1)
-                            |a::tl -> let s, l, j = triangle_to_string i acc2 a in
-                                      loop j (s::acc1) l tl
-    in
-    let l1, l2 = loop 0 [] [] triangles in
-    String.concat "\n \n" [String.concat "\n" (List.map vertice_to_string l1); String.concat "\n" l2]
+    String.concat "\n \n" [String.concat "\n" (List.map vertice_to_string vertices); String.concat "\n" (List.map face_to_string faces)]
   ;;
 
   let render_a_mesh iso f res box =
@@ -82,7 +58,7 @@ end = struct
     in
 
     let get_array_of_values =
-      let a = Array.make (r_x * r_z * r_y + 200) 0.0 in
+      let a = Array.make (r_x * r_z * r_y) 0.0 in
       print_int (Array.length a);
       let l = ref [] in
       for k = 0 to (r_x - 1) do
@@ -93,7 +69,6 @@ end = struct
             done
         done
       done;
-      print_string "Grid is computed \n";
       a
     in
 
@@ -112,23 +87,21 @@ end = struct
     in
 
     let compute_cube_index cube =
-      let rec aux i acc = function a::tl when  (a < iso) -> aux (i + 1) (acc + (1 lsl i)) tl
-                                 | a::tl -> aux (i + 1) (acc) tl
-                                 | [] -> acc in
-      let rec aux2 acc = function a::tl ->
-                                           aux2 ((callable_grid a)::acc) tl
-                                | [] -> List.rev acc in
-      let n = aux 0 0 (aux2 [] (Box.vertices_list cube)) in
-      n
-    in
+      let a = Array.of_list ((Box.vertices_list cube)) in
+      let index = ref 0 in
+      for i = 0 to 7 do
+        if (callable_grid (a.(i)) < iso) then index := (!index) lor (1 lsl i);
+      done;
+      !index
+     in
 
     let to_vect (cx, cy, cz) = Vector.vect ((float_of_int cx) *.h_x +. o_x) ((float_of_int cy) *.h_y +. o_y) ((float_of_int cz) *.h_z +. o_z) in
 
 
     let compute_vertices_list cube_index vertices_list =
       let edge_index = Tables.edge_table.(cube_index) in
-      let rec aux i acc m = function 0 -> List.rev acc
-                                    |n when (((1 lsl i) land m) == 1)  ->
+      let rec aux i acc m = function (0) -> List.rev acc
+                                    |n when (((1 lsl i) land m) != 0)  ->
                                       let e1, e2 = Tables.edge_list.(i) in
                                       let p1, p2 = List.nth vertices_list e1, List.nth vertices_list e2 in
                                       let q1, q2 = to_vect p1, to_vect p2 in
@@ -136,34 +109,54 @@ end = struct
                                       aux (i + 1) ((interpolate q1 q2 v1 v2)::acc) m (n -1)
                                     |n -> aux (i + 1) ((Vector.vect 0.0 0.0 0.0)::acc) m (n - 1)
       in
-      (aux 0 [] edge_index 12)
+      let l = (aux 0 [] edge_index 12) in
+      l
     in
 
-    let compute_triangles_list l cube =
-      let cube_index = compute_cube_index cube in
-      let cube_vertices = Box.vertices_list cube in
-      let vertices = Array.of_list (compute_vertices_list cube_index cube_vertices) in
-      let vlist = Tables.tri_table.(cube_index) in
-      let aux2 a b c = Mesh.triangle vertices.(a) vertices.(b) vertices.(c) in
-      let rec aux acc = function a::b::c::tl when not (a == -1) -> aux ((aux2 a b c)::acc) tl
-                           |_ -> acc
+    let compute_triangles_and_vertices triangles cube =
+      let index = compute_cube_index cube in
+      let l = Box.vertices_list cube in
+      let vertices = Array.of_list (compute_vertices_list index l) in
+      let table = Tables.tri_table.(index) in
+      let rec loop acc = function a::b::c::tl when (a == -1) -> acc
+                                 |a::b::c::tl -> 
+                                   (*print_string (Mesh.print_triangle ((Mesh.triangle vertices.(a) vertices.(b) vertices.(c))));*)
+                                   (try loop ((Mesh.triangle vertices.(a) vertices.(b) vertices.(c))::acc) tl with Invalid_argument s -> failwith "Not enough vertices")
+                                 | _ -> acc
       in
-      aux l vlist
+      loop triangles table
     in
 
-    let rec mmc acc i j k =
-      let cube = Box.box (0, 0, 0) (i, j, k) in
-      if (i == (r_x - 1)) then mmc (compute_triangles_list acc cube) 0 (j + 1) k
-      else if (j == (r_y - 1)) then mmc (compute_triangles_list acc cube) 0 0 (k + 1)
-      else if (k == (r_z - 2)) then  (List.rev acc)
-      else mmc (compute_triangles_list acc cube) (i + 1) j  k
+    let make_list_of_cubes step =
+      let rec loop acc i j k =
+        if (i > (r_x - step - 2)) then (loop ((Box.box (i, j, k) (i + 1, j + 1, k + 1))::acc) 0 (j + 1) k)
+        else if (j >  (r_y - step - 1)) then (loop acc 0 0 (k + step))
+        else if (k > (r_z - step - 1)) then (List.rev acc)
+        else (loop ((Box.box (i, j, k) (i + step, j + step, k + step))::acc) (i + step) j k)
+      in
+      loop [] 0 0 0
     in
-    Mesh.mesh (mmc [] 0 0 0)
+    let f acc c = compute_triangles_and_vertices acc c in
+    Mesh.mesh (List.fold_left f [] (List.rev (make_list_of_cubes 1)))
 ;;
 
-
+(*
+Tables.tri_table;;
 let sphere_func x y z = (x *. x +. y *. y +. z *. z -. 1.0);;
 let sphere_bound = (2.0, 2.0, 2.0);;
 let sphere = Field.field sphere_func sphere_bound;;
-
+let res = (100, 100, 100);;
+let box = Box.box (-.10.0,-. 10.0, -. 10.0) ( 10.0, 10.0, 10.0);;
+let i = 7;;
+let cube = Box.box (i, i, i) (i + 2, i + 2, i + 2);;
+let mesh_sphere = render_a_mesh 0.0 sphere res box;;
+let obj = export_to_obj mesh_sphere;;
+open Printf
+let oc = open_out "test2.obj";;
+fprintf oc "%s" obj;;
+  close_out oc
+;;
+Field.eval sphere 0. 0. 0.;;
+*)
 end
+

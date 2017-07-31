@@ -29,15 +29,15 @@ let grid = parse_sdf "test.sdf";;
 let a = Field.interpolate_field grid;;
 print_float (Field.eval a 0.1 0.2 4.0);;
 
-let res = (20, 20, 20);;
-let box = Box.box (0.0, 0.0, 0.0) ( 2.0, 2.0, 2.0);;
+let res = (100, 100, 100);;
+let box = Box.box (-2.0, -2.0, -2.0) ( 2.0, 2.0, 2.0);;
 
 
 let sphere_func x y z = (x *. x +. y *. y +. z *. z -. 0.01);;
 let sphere_bound = (10.0, 10.0, 10.0);;
 let sphere = Field.field sphere_func sphere_bound;;
 
-let mesh_sphere = SdfRenderMaker.render_a_mesh 0.0 sphere res box;;
+let mesh_sphere = SdfRenderMaker.render_a_mesh 0.0 a res box;;
 let s = SdfRenderMaker.export_to_obj mesh_sphere;;
 
 let oc = open_out "test.obj";;
