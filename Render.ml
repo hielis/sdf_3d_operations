@@ -35,27 +35,17 @@ end = struct
     let h_x, h_y, h_z = step box.Box.x r_x, step box.Box.y r_y, step box.Box.z r_z in
     let (o_x,_), (o_y, _), (o_z, _) = box.Box.x, box.Box.y, box.Box.z in
 
-    let rec get_grid acc i j k =
-      let eval i j k = (Field.eval f ((float_of_int i) *.h_x +. o_x) ((float_of_int j) *.h_y +. o_y) ((float_of_int k) *.h_z +. o_z))
-      in
-      if (i == (r_x - 1)) then get_grid ((eval i j k)::acc)  0 (j + 1) k
-      else if (j == (r_y - 1)) then get_grid ((eval i j k)::acc) 0 0 (k + 1)
-      else if (k == (r_z - 1)) then  (List.rev acc)
-      else get_grid ((eval i j k)::acc) (i + 1) j  k
-    in
-
     let get_array_of_values =
       let a = Array.make (r_x * r_z * r_y) 0.0 in
-      print_int (Array.length a);
-      let l = ref [] in
-      for k = 0 to (r_x - 1) do
-        for j = 0 to (r_y - 1) do
-          for i = 0 to (r_z - 1) do
-            (*print_int (i + (j * r_x) + (k * r_y * r_x);*)
-            try a.(i + (j * r_x) + (k * r_y * r_x)) <- (Field.eval f ((float_of_int i) *.h_x +. o_x) ((float_of_int j) *.h_y +. o_y) ((float_of_int k) *.h_z +. o_z)) with Invalid_argument(s) -> (print_float ((float_of_int i) *.h_x +. o_x)); print_float ((float_of_int j) *.h_y +. o_y) ;print_float ((float_of_int k) *.h_z +. o_z) ; print_string " | ";
-            done
-        done
-      done;
+      let f i j k = (Field.eval f ((float_of_int i) *.h_x +. o_x) ((float_of_int j) *.h_y +. o_y) ((float_of_int k) *.h_z +. o_z)) in
+      let rec fill_array i j k = match i, j, k with
+        | i, j, k when (i ==  r_x) -> fill_array (0) (j + 1) (k)
+        | i, j, k when (j ==  r_y) -> fill_array (0) (0) (k + 1)
+        | i, j, k when (k ==  r_z) -> ()
+        |i, j, k -> (a.(i + r_x * j + r_x * r_y * k) <- f i j k);
+                    fill_array (i + 1) (j) (k);
+      in
+      fill_array 0 0 0;
       a
     in
 
@@ -118,7 +108,7 @@ end = struct
       let rec loop acc i j k =
         if (i > (r_x - step - 2)) then (loop ((Box.box (i, j, k) (i + 1, j + 1, k + 1))::acc) 0 (j + 1) k)
         else if (j >  (r_y - step - 1)) then (loop acc 0 0 (k + step))
-        else if (k > (r_z - step - 1)) then (List.rev acc)
+        else if (k > (r_z - step - 1)) then (acc)
         else (loop ((Box.box (i, j, k) (i + step, j + step, k + step))::acc) (i + step) j k)
       in
       loop [] 0 0 0
