@@ -53,5 +53,7 @@ module FieldOperation : sig
   val union : Field.t -> Field.t -> Field.t
   val intersection : Field.t -> Field.t -> Field.t
   val substraction : Field.t -> Field.t -> Field.t
-  val morph : float -> Field.t -> Field.t -> Field.t
+  val morph : float -> Field.t -> Field.t -> Field.t  
+  val repetition : int -> (float * float * float) -> Field.t -> Field.t
+  val test : int -> Field.t -> Field.t
 end

@@ -145,6 +145,8 @@ module FieldOperation : sig
   val intersection : Field.t -> Field.t -> Field.t
   val substraction : Field.t -> Field.t -> Field.t
   val morph : float -> Field.t -> Field.t -> Field.t
+  val repetition : int -> (float * float * float) -> Field.t -> Field.t
+  val test : int -> Field.t -> Field.t
 end = struct
   let use_a_function = Field.use_a_function_left;;
   let use_a_binary_op = Field.use_a_binary_op;;
@@ -185,4 +187,69 @@ end = struct
   let substraction = Field.use_a_binary_op substract_op;;
   let morph_op f = if ((f < 0.0) || (f > 1.0)) then failwith "Morph parameter too big" else (fun a b -> (f*.a +. (1.0 -. f) *. b))
   let morph f = Field.use_a_binary_op (morph_op f);;
+
+  let repetition n v =
+    let fmod (x, y, z) = match v with
+      |(0., 0., 0.) -> (x, y, z)
+      |(0., 0., zp) -> (x, y, z -. (floor (z/. zp)))
+      |(0., yp, 0.) -> (x, y -. (floor (y /. yp))  ,z)
+      |(xp, 0., 0.) -> (x -. (floor (x /. xp)), y, z)
+      |(0., yp, zp) ->
+        let k = min (floor (z/. zp)) (floor (y /. yp)) in
+        (x, y -. k *. yp, z -. k *. zp)
+      |(xp, 0., zp) ->
+        let k = min (floor (z/. zp)) (floor (x /. xp)) in
+        (x -. k *. xp, y, z -. k *. zp)
+      |(xp, yp, 0.) ->
+        let k = min (floor (x/. xp)) (floor (y /. yp)) in
+        (x -. k *.xp, y -. k *. yp, z)
+      |(xp, yp, zp) ->  let k = min (floor (z/. zp))  (min (floor (x/. xp)) (floor (y /. yp))) in
+        (x -. k *.xp, y -. k *. yp,  z -. k *. zp)
+    in
+    let p = float_of_int n in
+    let bound_func = scale_func (p, p, p) in
+    Field.use_a_function_right (fmod) (bound_func)
+  ;;
+
+  let test n f =
+    let b = Field.boundaries f in
+    let xmin, xmax = b.Box.x
+      and  ymin, ymax = b.Box.y
+      and  zmin, zmax = b.Box.z in
+    let ax = (xmax -. xmin) in
+    let ay = (ymax -. ymin) in
+    let az = (zmax -. zmin) in
+    let fx x = (x -. xmin) /. ax in
+    let fy y = (y -. ymin) /. ay in
+    let fz z = (z -. zmin) /. az in
+    let gx x = x *. ax +. xmin in
+    let gy y = y *. ay +. ymin in
+    let b_func (x, y, z) = (x, y, z) in
+    let gz z = z *. az +. zmin in
+    let boulanger_x (x,y) = match (fx x), (fy y) with
+      |a, b when (a < 0.5) -> (gx (2. *. a), gy (y *. 0.5))
+      |a, b -> (gx (2. *. a -. 1.), gy (0.5 *. (b +. 1.)))
+    in
+    let boulanger_y (y, z) = match (fy y), (fz z) with
+      |a, b when (a < 0.5) -> (gy (2. *. a), gz (b *. 0.5))
+      |a, b -> (gy (2. *. a -. 1.), gz (0.5 *. (b +. 1.)))
+    in
+    let boulanger_z (x, z) = match (fx x), (fz z) with
+      |a, b when (a < 0.5) -> (gx (2. *. a), gz (b *. 0.5))
+      |a, b -> (gx (2. *. a -. 1.), gz (0.5 *. (b +. 1.)))
+    in
+    let func (x, y, z) =
+      let xp, yp = boulanger_x (x, y) in
+      let ypp, zp = boulanger_y (yp, z) in
+      let zpp, xpp = boulanger_z (xp, zp) in
+      (xpp, ypp, zpp)
+    in
+    let rec loop acc = function 0 -> acc
+                          | n ->
+                             let h a = func (acc a) in
+                             loop h (n - 1)
+    in
+    let transform = loop func n in
+    Field.use_a_function_right (transform) (b_func) f
+  ;;
 end
