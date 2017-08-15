@@ -21,18 +21,14 @@ let pathout = Sys.argv.(4)
 
 let json = Yojson.Basic.from_string json_string
 let to_vect_array () =
-  let rec loop acc = function [] -> acc
-                                    |`Assoc(l)::tl -> loop (l::acc) tl
-                            |_::tl -> loop acc tl
-  in
   let assoc_to_vect arg  =
-    let a::b::c::d::[] = arg in
-    match b,c,d with
-      |(_, `Float (x)),(_, `Float (z)),(_, `Float (y)) -> (x, y, z)
-      | _ -> (0., 0., 0.)
+    let x = arg |> Yojson.Basic.Util.member "x" |> Yojson.Basic.Util.to_float
+    and y = arg	|> Yojson.Basic.Util.member "y" |> Yojson.Basic.Util.to_float
+    and z = arg |> Yojson.Basic.Util.member "z" |> Yojson.Basic.Util.to_float in
+    (x, y, z)
   in
   let json_list = Yojson.Basic.Util.to_list json in
-  let vect_list = List.map assoc_to_vect (loop [] json_list) in
+  let vect_list = List.map assoc_to_vect (json_list) in
   Array.of_list (List.rev vect_list);;
 
 let array_features = to_vect_array ();;
@@ -81,7 +77,14 @@ let union_sdf = FieldOperation.union head_sdf hat_modified_sdf
 let res = (200, 200, 200)
 
 let box_smurf = Field.boundaries union_sdf
-let (xming, xmaxg), (yming, ymaxg), (zming, zmaxg) = box_smurf.Box.x, box_smurf.Box.y, box_smurf.Box.z
+let (xming, xmaxg), (yming, ymaxg), (zming, zmaxg) = box_smurf.Box.x, box_smurf.Box.y, box_smurf.Box.z;;
+
+print_float xming;
+print_float yming;
+print_float zming;
+print_float xmaxg;
+print_float ymaxg;
+print_float zmaxg;;
 
 let box = Box.box (1.1 *. xming , 1.1 *. yming, 1.1 *. zming) (1.1 *. xmaxg, 1.7 *. ymaxg, 1.1 *. zmaxg)
 let mesh = SdfRenderMaker.render_a_mesh_fast 0.0 union_sdf res box
