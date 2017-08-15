@@ -61,7 +61,10 @@ let hat_scale_z = 1.1 *. hat_scale_x;;
 print_float hat_scale_x;;
 
 let box_hat = Field.boundaries (FieldOperation.scale (hat_scale_x, hat_scale_y, hat_scale_z) hat_sdf)
+
 let (xmin, xmax), (ymin, ymax), (zmin, zmax) = box_hat.Box.x, box_hat.Box.y, box_hat.Box.z
+
+
 
 let hat_translate_x =  0.
 let hat_translate_y = -. 2.3 *. features_y9
@@ -84,7 +87,11 @@ let union_sdf = (FieldOperation.union head_sdf hat_modified_sdf)
 let res = (200, 200, 200)
 
 let box_smurf = Field.boundaries union_sdf
+(*
 let (xming, xmaxg), (yming, ymaxg), (zming, zmaxg) = box_smurf.Box.x, box_smurf.Box.y, box_smurf.Box.z;;
+ *)
+
+let (xming, xmaxg), (yming, ymaxg), (zming, zmaxg) = (-. 1.3, 1.3), (-.1. , 2.5), (-. 1.3, 1.3);;
 
 print_string "\n";
 print_float xming;
