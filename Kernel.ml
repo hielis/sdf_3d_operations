@@ -156,7 +156,7 @@ end = struct
     let vx, vy, vz = vector in
     fun (x, y, z) -> (x -. vx, y -. vy, z -. vz);;
   let modify_bound_translate vector =  let vx, vy, vz = vector in
-    fun (x, y, z) -> (x +. (abs_float vx), y +. (abs_float vy), z +. (abs_float vz));;
+    fun (x, y, z) -> (x +. vx, y +. vy, z +. vz);;
   let translate vector = Field.use_a_function_right (translate_func vector) (modify_bound_translate vector);;
 
   let rotate_func theta vector =
