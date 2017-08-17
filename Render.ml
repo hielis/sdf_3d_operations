@@ -76,14 +76,14 @@ end = struct
         value
     in
     let flushed = ref false in
+    let count_f = ref 0 in
     let count = ref 0 in
     let update_flushed () =
       if (!flushed) then ()
       else (
         print_string "Flushing the pile";
-        let l = Pile.flush cube_pile in
         flushed := true;
-      )
+       )
     in
   
   (*refine this*)
@@ -319,16 +319,15 @@ end = struct
            launch_computation (compute_triangles_and_vertices acc c)
          )
     in
-  
+
     let init step =
-      let k = r_z / 2 in
-      for i = 0 to (r_x - 2) do
-        for j = 0 to (r_y - 2) do
-          Pile.push cube_pile (Box.box (i, j, k) (i + step, j + step, k + step));
-        done
-      done;
+            let j = r_y / 2 in
+            for i = 0 to (r_x - 2) do
+                for k = 0 to (r_z - 2) do
+                   Pile.push cube_pile (Box.box (i, j, k) (i     + step, j + step, k + step));
+               done
+            done;
     in
-  
     init 1;
     let list_of_triangles = launch_computation [] in
     Mesh.mesh list_of_triangles
