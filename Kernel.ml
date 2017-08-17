@@ -1,5 +1,4 @@
 let constant = 10000000.0;;
-
 let max a b = if (a > b) then a else b;;
 let min a b = if (b > a) then a else b;;
 
@@ -44,9 +43,9 @@ module Field : sig
   val boundaries : t -> float Box.box
   val field : (float -> float -> float -> v) -> (float Box.box) -> t
   val interpolate_field : grid -> t
-  val use_a_function_left : (v -> v) -> t -> t
-  val use_a_function_right : ((float*float*float) -> (float*float*float)) -> ((float * float * float) -> (float * float * float)) -> t -> t
-  val use_a_binary_op : (v -> v -> v) -> t -> t -> t
+  val use_a_function_left : (v -> v) -> ((float Box.box) -> (float Box.box)) -> t -> t
+  val use_a_function_right : ((float*float*float) -> (float*float*float)) -> ((float Box.box) -> (float Box.box)) -> t -> t
+  val use_a_binary_op : (v -> v -> v) -> ((float Box.box) -> (float Box.box) -> (float Box.box)) -> t -> t -> t
 end = struct
   include Box
   type v = float
@@ -107,19 +106,32 @@ end = struct
              in
              field f boundaries
 ;;
-  let use_a_function_left (f : v -> v) = function (a, b) -> let fp x  y  z = f (a x y z) in
-                                             ((fp), b);;
+
+
+
+(*Change*)
+  let use_a_function_left (f : v -> v) fb = function (a, b) -> let fp x  y  z = f (a x y z) in
+                                             ((fp), fb b);;
+
+
+
+
+
+
   let use_a_function_right f fb =
-    function (a, b) -> let (xm,xM), (ym,yM), (zm, zM) = b.x, b.y, b.z in
-             let bp = box (f (xm, ym, zm)) (f (xM, yM, zM)) in
-             let fp x y z =
-               let xp, yp, zp = f (x, y, z) in
-               (a xp yp zp)
-             in
-             (fp, bp);;
+    function (a, b) -> let bp = fb b in
+                       let fp x y z =
+                         let xp, yp, zp = f (x, y, z) in
+                         (a xp yp zp)
+                       in
+                       (fp, bp);;
+
   let max a b = if (a > b) then a else b;;
-  let use_a_binary_op (op : v -> v -> v) (f1:t) (f2:t) = match (f1, f2) with (a,b),(ap, bp) -> let fp x y z = op (a x y z) (ap x y z) in
-      (fp, max_box b bp);;
+
+(*Change*)
+
+let use_a_binary_op (op : v -> v -> v) fb (f1:t) (f2:t) = match (f1, f2) with (a,b),(ap, bp) -> let fp x y z = op (a x y z) (ap x y z) in
+      (fp, fb b bp);;
 end
 
 module type SdfOperation = functor (M : SignedDistanceFunction) -> sig
@@ -136,8 +148,8 @@ module type SdfOperation = functor (M : SignedDistanceFunction) -> sig
 end
 
 module FieldOperation : sig
-  val use_a_function : (float -> float) -> Field.t -> Field.t
-  val use_a_binary_op : (float -> float -> float) -> Field.t -> Field.t -> Field.t
+  val use_a_function : (Field.v -> Field.v) -> ((float Box.box) -> (float Box.box)) -> Field.t -> Field.t
+  val use_a_binary_op : (float -> float -> float) -> (float Box.box -> float Box.box -> float Box.box) -> Field.t -> Field.t -> Field.t
   val translate : (float * float * float) -> Field.t -> Field.t
   val rotate : float -> (float * float * float) -> Field.t -> Field.t
   val scale : (Field.v * Field.v * Field.v) -> Field.t -> Field.t
@@ -145,8 +157,6 @@ module FieldOperation : sig
   val intersection : Field.t -> Field.t -> Field.t
   val substraction : Field.t -> Field.t -> Field.t
   val morph : float -> Field.t -> Field.t -> Field.t
-  val repetition : int -> (float * float * float) -> Field.t -> Field.t
-  val test : int -> Field.t -> Field.t
 end = struct
   let use_a_function = Field.use_a_function_left;;
   let use_a_binary_op = Field.use_a_binary_op;;
@@ -155,8 +165,19 @@ end = struct
   let translate_func vector =
     let vx, vy, vz = vector in
     fun (x, y, z) -> (x -. vx, y -. vy, z -. vz);;
-  let modify_bound_translate vector =  let vx, vy, vz = vector in
-    fun (x, y, z) -> (x +. vx, y +. vy, z +. vz);;
+
+(*Change*)
+  let modify_bound_translate vector =
+    let vx, vy, vz = vector in
+    (fun b -> let xmin, xmax = b.Box.x
+              and ymin, ymax = b.Box.y
+              and zmin, zmax = b.Box.z in
+     Box.box (xmin +. vx, ymin +. vy, zmin +. vz) (xmax +. vx, ymax +. vy, zmax +. vz)
+    )
+  ;;
+
+
+
   let translate vector = Field.use_a_function_right (translate_func vector) (modify_bound_translate vector);;
 
   let rotate_func theta vector =
@@ -166,90 +187,55 @@ end = struct
       (((cos (-. theta)) *. x +. d *. nx +. (sin (-. theta))) *. (y *. nz -. z *. ny),
        (cos (-. theta)) *. x +. d *. nx +. (sin (-. theta)) *. (y *. nz -. z *. ny),
        (cos (-. theta)) *. x +. d *. nx +. (sin (-. theta)) *. (y *. nz -. z *. ny)));;
+
+
+
+(*Change*)
   let rotate_bounding_func theta vector =
     let r = (rotate_func (-. theta) vector) in
-    fun (x, y, z) -> (
-      let a, b, c  = r (x, y, z) in
-      (max a x, max b y, max c z)
-    );;
+    (fun b -> let xmin, xmax = b.Box.x
+              and ymin, ymax = b.Box.y
+              and zmin, zmax = b.Box.z in
+              let amin, bmin, cmin  = r (xmin, ymin, zmin)
+              and amax, bmax, cmax  = r (xmax, ymax, zmax) in
+              let dmin, dmax = min (min amin bmin) cmin, max (max amax bmax) cmax in
+              Box.box (dmin, dmin, dmin) (dmax, dmax, dmax)
+    )
+  ;;
+
+
 
   let rotate theta vector = Field.use_a_function_right (translate_func vector) (rotate_bounding_func theta vector);;
 
   let scale_func lambda =
     let lx, ly, lz = lambda in
     fun (x, y, z) -> (x /. lx, y /. ly, z /. lz);;
-  let scale_bound (a, b, c) = scale_func (1.0 /. a, 1.0 /. b, 1.0 /. c);;
+
+
+
+
+(*Change*)
+  let scale_bound (a, b, c) =
+    let f = (scale_func (1.0 /. a, 1.0 /. b, 1.0 /. c)) in
+    (fun v -> let xmin, xmax = v.Box.x
+              and ymin, ymax = v.Box.y
+              and zmin, zmax = v.Box.z in
+              Box.box (f (xmin,ymin,zmin)) (f (xmax, ymax, zmax))
+    )
+  ;;
+
+
+
+
+
 
   let scale lambda = Field.use_a_function_right (scale_func lambda) (scale_bound lambda);;
-  let union = Field.use_a_binary_op min;;
+
+  let union = Field.use_a_binary_op min Box.max_box;;
   let substract_op a b = max a (-. b);;
-  let intersection = Field.use_a_binary_op max;;
-  let substraction = Field.use_a_binary_op substract_op;;
+  let intersection = Field.use_a_binary_op max Box.max_box;;
+  let substraction = Field.use_a_binary_op substract_op Box.max_box;;
   let morph_op f = if ((f < 0.0) || (f > 1.0)) then failwith "Morph parameter too big" else (fun a b -> (f*.a +. (1.0 -. f) *. b))
-  let morph f = Field.use_a_binary_op (morph_op f);;
+  let morph f = Field.use_a_binary_op (morph_op f) Box.max_box;;
 
-  let repetition n v =
-    let fmod (x, y, z) = match v with
-      |(0., 0., 0.) -> (x, y, z)
-      |(0., 0., zp) -> (x, y, z -. (floor (z/. zp)))
-      |(0., yp, 0.) -> (x, y -. (floor (y /. yp))  ,z)
-      |(xp, 0., 0.) -> (x -. (floor (x /. xp)), y, z)
-      |(0., yp, zp) ->
-        let k = min (floor (z/. zp)) (floor (y /. yp)) in
-        (x, y -. k *. yp, z -. k *. zp)
-      |(xp, 0., zp) ->
-        let k = min (floor (z/. zp)) (floor (x /. xp)) in
-        (x -. k *. xp, y, z -. k *. zp)
-      |(xp, yp, 0.) ->
-        let k = min (floor (x/. xp)) (floor (y /. yp)) in
-        (x -. k *.xp, y -. k *. yp, z)
-      |(xp, yp, zp) ->  let k = min (floor (z/. zp))  (min (floor (x/. xp)) (floor (y /. yp))) in
-        (x -. k *.xp, y -. k *. yp,  z -. k *. zp)
-    in
-    let p = float_of_int n in
-    let bound_func = scale_func (p, p, p) in
-    Field.use_a_function_right (fmod) (bound_func)
-  ;;
-
-  let test n f =
-    let b = Field.boundaries f in
-    let xmin, xmax = b.Box.x
-      and  ymin, ymax = b.Box.y
-      and  zmin, zmax = b.Box.z in
-    let ax = (xmax -. xmin) in
-    let ay = (ymax -. ymin) in
-    let az = (zmax -. zmin) in
-    let fx x = (x -. xmin) /. ax in
-    let fy y = (y -. ymin) /. ay in
-    let fz z = (z -. zmin) /. az in
-    let gx x = x *. ax +. xmin in
-    let gy y = y *. ay +. ymin in
-    let b_func (x, y, z) = (x, y, z) in
-    let gz z = z *. az +. zmin in
-    let boulanger_x (x,y) = match (fx x), (fy y) with
-      |a, b when (a < 0.5) -> (gx (2. *. a), gy (y *. 0.5))
-      |a, b -> (gx (2. *. a -. 1.), gy (0.5 *. (b +. 1.)))
-    in
-    let boulanger_y (y, z) = match (fy y), (fz z) with
-      |a, b when (a < 0.5) -> (gy (2. *. a), gz (b *. 0.5))
-      |a, b -> (gy (2. *. a -. 1.), gz (0.5 *. (b +. 1.)))
-    in
-    let boulanger_z (x, z) = match (fx x), (fz z) with
-      |a, b when (a < 0.5) -> (gx (2. *. a), gz (b *. 0.5))
-      |a, b -> (gx (2. *. a -. 1.), gz (0.5 *. (b +. 1.)))
-    in
-    let func (x, y, z) =
-      let xp, yp = boulanger_x (x, y) in
-      let ypp, zp = boulanger_y (yp, z) in
-      let zpp, xpp = boulanger_z (xp, zp) in
-      (xpp, ypp, zpp)
-    in
-    let rec loop acc = function 0 -> acc
-                          | n ->
-                             let h a = func (acc a) in
-                             loop h (n - 1)
-    in
-    let transform = loop func n in
-    Field.use_a_function_right (transform) (b_func) f
-  ;;
 end
