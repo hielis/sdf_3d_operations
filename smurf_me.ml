@@ -58,10 +58,17 @@ let features_x29, _, features_z29 = array_features.(29)
 let _, features_y31, features_z31 = array_features.(31)
 let features_x32, _, _ = array_features.(32)
 let features_x9, features_y9, features_z9 = array_features.(9)
-let hat_scale_x = 1. *. (abs_float (features_x0 -. features_x16))
-let hat_scale_y = hat_scale_x
-let hat_scale_z = 1. *. hat_scale_x;;
+(* let hat_scale_x = 1. *. (abs_float (features_x0 -. features_x16)) *)
+(* let hat_scale_y = hat_scale_x *)
+(* let hat_scale_z = 1. *. hat_scale_x;; *)
+
+let hat_scale_x = 1.
+let hat_scale_y = 1.
+let hat_scale_z = 1.;;
+
 print_float hat_scale_x;;
+print_float hat_scale_y;;
+print_float hat_scale_z;;
 
 let box_hat = Field.boundaries (FieldOperation.scale (hat_scale_x, hat_scale_y, hat_scale_z) hat_sdf)
 
@@ -101,11 +108,14 @@ print_string "-----------\n";;
 print_float make_hat_center_x;;
 print_string "-----------\n";;
 
-let hat_translate_x =  make_hat_center_x;;
+(* let hat_translate_x =  make_hat_center_x;; *)
+(* let hat_translate_y = (features_y31 -. ymin)/.1.5;; *)
 (* let hat_translate_x =  0. *)
-let hat_translate_y = (features_y31 -. ymin)/.1.5;;
+(* let hat_translate_y = 0.;; *)
 (* let hat_translate_z = 0. ;; *)
 (* z of tip of the hat align with the nose bone -> point 28 *)
+let hat_translate_x =  make_hat_center_x;;
+let hat_translate_y = (features_y31 -. ymin)/.1.5;;
 let hat_translate_z = (zmax -. features_z31)/.2. ;;
 print_string "---z31-----\n";;
 print_float hat_translate_z;;
@@ -122,10 +132,18 @@ print_string "\n";;
 let hat_modified_sdf = FieldOperation.translate (hat_translate_x, hat_translate_y, hat_translate_z) (FieldOperation.scale (hat_scale_x, hat_scale_y, hat_scale_z) hat_sdf)
 
 
+let sub_hat_modified_sdf = FieldOperation.translate (hat_translate_x, hat_translate_y, hat_translate_z) (FieldOperation.scale (1.1*.hat_scale_x, 1.1*.hat_scale_y, hat_scale_z) hat_sdf)
+
 let union_sdf = (FieldOperation.union head_sdf hat_modified_sdf)
+(* let union_sdf = (FieldOperation.substraction head_sdf hat_modified_sdf) *)
+
+let my_func x y z = -.0.5 +. x*.x +. (1.2*.y -. 1.)**2. +. z *. z ;;
+let bound = Box.box (-.1.5, -.1.5, -.1.5) (1.5, 1.5, 1.5) ;;
+let sphere = Field.field my_func bound;;
+
 
 (* render and export : *)
-let res = (200, 200, 200)
+let res = (200, 300, 200)
 
 let box_smurf =  Box.max_box (Field.boundaries head_sdf) (Field.boundaries hat_modified_sdf)
 
@@ -147,7 +165,8 @@ print_string "\n";
 print_float zmaxg;
 print_string "\n";;
 
-let box = Box.box (1.0 *. xming , 1.0 *. yming, 1.0 *. zming) (1.0 *. xmaxg, 1.0 *. ymaxg, 1.0 *. zmaxg)
+let box = Box.box (-.2., -.2., -.2.) (2., 2., 2.)
+(* let mesh = SdfRenderMaker.render_a_mesh 0.0 union_sdf res box *)
 let mesh = SdfRenderMaker.render_a_mesh_fast 0.0 union_sdf res box
 
 
