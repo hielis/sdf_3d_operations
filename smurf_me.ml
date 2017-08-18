@@ -7,6 +7,10 @@ open Render
 open Parse
 open Printf
 
+(* tiger  *)
+let print_float_list l = List.iter (printf "\n%f===") l;;
+(* end tiger  *)
+
 (* filepaths  *)
 
 
@@ -62,17 +66,26 @@ let features_x9, features_y9, features_z9 = array_features.(9)
 (* let hat_scale_y = hat_scale_x *)
 (* let hat_scale_z = 1. *. hat_scale_x;; *)
 
-let hat_scale_x = 1.
-let hat_scale_y = 1.
-let hat_scale_z = 1.;;
+let hat_scale_x = 0.7
+let hat_scale_y = 0.8
+let hat_scale_z = 0.9;;
 
 print_float hat_scale_x;;
 print_float hat_scale_y;;
 print_float hat_scale_z;;
 
+let test_box_hat = Field.boundaries hat_sdf;;
+
+let (test_xmin, test_xmax), (test_ymin, test_ymax), (test_zmin, test_zmax) = test_box_hat.Box.x, test_box_hat.Box.y, test_box_hat.Box.z;;
+
+let () = print_float_list [test_xmin;test_xmax;test_ymin;test_ymax;test_zmin;test_zmax];;
+
 let box_hat = Field.boundaries (FieldOperation.scale (hat_scale_x, hat_scale_y, hat_scale_z) hat_sdf)
 
 let (xmin, xmax), (ymin, ymax), (zmin, zmax) = box_hat.Box.x, box_hat.Box.y, box_hat.Box.z
+
+let () = print_float_list [xmin;xmax;ymin;ymax;zmin;zmax];;
+
 
 (*x of tip of the hat align with the nose bone -> point 28 *)
 let hat_center_x = (xmax +. xmin) /. 2.
@@ -115,8 +128,8 @@ print_string "-----------\n";;
 (* let hat_translate_z = 0. ;; *)
 (* z of tip of the hat align with the nose bone -> point 28 *)
 let hat_translate_x =  make_hat_center_x;;
-let hat_translate_y = (features_y31 -. ymin)/.1.5;;
-let hat_translate_z = (zmax -. features_z31)/.2. ;;
+let hat_translate_y = features_y31 -. ymin -. 0.45 ;;
+let hat_translate_z = zmax -. features_z31 -. 0.37;;
 print_string "---z31-----\n";;
 print_float hat_translate_z;;
 print_string "-----------\n";;
@@ -132,7 +145,7 @@ print_string "\n";;
 let hat_modified_sdf = FieldOperation.translate (hat_translate_x, hat_translate_y, hat_translate_z) (FieldOperation.scale (hat_scale_x, hat_scale_y, hat_scale_z) hat_sdf)
 
 
-let sub_hat_modified_sdf = FieldOperation.translate (hat_translate_x, hat_translate_y, hat_translate_z) (FieldOperation.scale (1.1*.hat_scale_x, 1.1*.hat_scale_y, hat_scale_z) hat_sdf)
+let sub_hat_modified_sdf = FieldOperation.translate (hat_translate_x, hat_translate_y, hat_translate_z) (FieldOperation.scale (hat_scale_x, hat_scale_y, hat_scale_z) hat_sdf)
 
 let union_sdf = (FieldOperation.union head_sdf hat_modified_sdf)
 (* let union_sdf = (FieldOperation.substraction head_sdf hat_modified_sdf) *)
@@ -143,7 +156,7 @@ let sphere = Field.field my_func bound;;
 
 
 (* render and export : *)
-let res = (200, 300, 200)
+let res = (200, 200, 300)
 
 let box_smurf =  Box.max_box (Field.boundaries head_sdf) (Field.boundaries hat_modified_sdf)
 
@@ -165,9 +178,9 @@ print_string "\n";
 print_float zmaxg;
 print_string "\n";;
 
-let box = Box.box (-.2., -.2., -.2.) (2., 2., 2.)
-(* let mesh = SdfRenderMaker.render_a_mesh 0.0 union_sdf res box *)
-let mesh = SdfRenderMaker.render_a_mesh_fast 0.0 union_sdf res box
+let box = Box.box (-.1.5, -.1.5, -.1.5) (1.5, 1.5, 1.5)
+let mesh = SdfRenderMaker.render_a_mesh 0.0 union_sdf res box
+(* let mesh = SdfRenderMaker.render_a_mesh_fast 0.0 union_sdf res box *)
 
 
 let oc = open_out pathout;;
