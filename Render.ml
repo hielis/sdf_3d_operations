@@ -91,10 +91,8 @@ end = struct
   
         Vector.add (p1) (Vector.scal_mult ((iso -. v1) /. (v2 -. v1)) (Vector.sub p2 p1))
     in
-  
+
   (*end : refine this*)
-  
-  
     let hash_cube b =
       let (a, _),(b, _), (c, _) = b.Box.x, b.Box.y, b.Box.z in
       (a + r_x * b + r_y * r_x * c)
@@ -267,10 +265,7 @@ end = struct
                          else (
                            let b = Box.box (xmin, ymin + 1, zmin + 1) (xmin + 1, ymin + 2, zmin + 2) in
               Some b)
-  
-  
-  
-  
+ 
         |_ -> None
       in
       let rec aux2 = function [] -> ()
@@ -283,7 +278,7 @@ end = struct
                         )
   
       in
-      aux2 lp
+      aux2 [1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11; 12; 13; 14; 15; 16; 17; 18; 19; 20; 21; 22; 23; 24; 25; 26]
     in
   
     let compute_triangles_and_vertices triangles cube =
