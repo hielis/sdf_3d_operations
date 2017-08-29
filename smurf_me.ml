@@ -7,7 +7,7 @@ open Render
 open Parse
 open Printf
 
-(* tiger  *)
+(*er  *)
 let print_float_list l = List.iter (printf "\n%f===") l;;
 (* end tiger  *)
 
@@ -40,7 +40,11 @@ let array_features = to_vect_array ();;
 (* load sdfs : *)
 
 let grid_head  = parse_sdf head_path;;
-let head_sdf = Field.interpolate_field grid_head;;
+let _, (gx, gy, gz), (sx, sy, sz), s = grid_head
+let lambda = 8.0 /. (s *. (float_of_int (gx + gy + gz)));;
+print_string "=============";;
+print_float lambda;;
+let head_sdf = FieldOperation.scale (lambda, lambda, lambda) (Field.interpolate_field grid_head);;
 
 let grid_hat = parse_sdf hat_path;;
 let hat_sdf = Field.interpolate_field grid_hat;;
@@ -66,13 +70,18 @@ let features_x9, features_y9, features_z9 = array_features.(9)
 (* let hat_scale_y = hat_scale_x *)
 (* let hat_scale_z = 1. *. hat_scale_x;; *)
 
-let hat_scale_x = 0.7
-let hat_scale_y = 0.8
-let hat_scale_z = 0.9;;
+(* let hat_scale_x = lambda *. 0.7 *)
+(* let hat_scale_y = lambda *. 0.8 *)
+(* let hat_scale_z = lambda *. 0.9;; *)
 
+let hat_scale_x = 1.0 ;;
+let hat_scale_y = 1.0 ;;
+let hat_scale_z = 1.0 ;;
+(*
 print_float hat_scale_x;;
 print_float hat_scale_y;;
 print_float hat_scale_z;;
+*)
 
 let test_box_hat = Field.boundaries hat_sdf;;
 
@@ -148,15 +157,12 @@ let hat_modified_sdf = FieldOperation.translate (hat_translate_x, hat_translate_
 let sub_hat_modified_sdf = FieldOperation.translate (hat_translate_x, hat_translate_y, hat_translate_z) (FieldOperation.scale (hat_scale_x, hat_scale_y, hat_scale_z) hat_sdf)
 
 let union_sdf = (FieldOperation.union head_sdf hat_modified_sdf)
-(* let union_sdf = (FieldOperation.substraction head_sdf hat_modified_sdf) *)
 
 let my_func x y z = -.0.5 +. x*.x +. (1.2*.y -. 1.)**2. +. z *. z ;;
-let bound = Box.box (-.1.5, -.1.5, -.1.5) (1.5, 1.5, 1.5) ;;
-let sphere = Field.field my_func bound;;
 
 
 (* render and export : *)
-let res = (200, 200, 300)
+let res = (200, 200, 200)
 
 let box_smurf =  Box.max_box (Field.boundaries head_sdf) (Field.boundaries hat_modified_sdf)
 
@@ -177,12 +183,11 @@ print_float ymaxg;
 print_string "\n";
 print_float zmaxg;
 print_string "\n";;
+let box = Box.box (-.2.0, -.2.0, -.2.0) (2.0, 2.0, 2.0)
+(* let mesh = SdfRenderMaker.render_a_mesh 0.0 union_sdf res box *)
+let mesh = SdfRenderMaker.render_a_mesh_fast 0.0 union_sdf res box;;
 
-let box = Box.box (-.1.5, -.1.5, -.1.5) (1.5, 1.5, 1.5)
-let mesh = SdfRenderMaker.render_a_mesh 0.0 union_sdf res box
-(* let mesh = SdfRenderMaker.render_a_mesh_fast 0.0 union_sdf res box *)
-
-
+print_string "heyyy";;
 let oc = open_out pathout;;
 fprintf oc "%s" (SdfRenderMaker.export_to_obj mesh);;
 close_out oc;;
