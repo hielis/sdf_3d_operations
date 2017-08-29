@@ -40,7 +40,9 @@ let array_features = to_vect_array ();;
 (* load sdfs : *)
 
 let grid_head  = parse_sdf head_path;;
-let head_sdf = Field.interpolate_field grid_head;;
+let _, (gx, gy, gz), (sx, sy, sz), s = grid_head
+let lambda = 8.0 /. (s *. (sx +. sy +. sz));;
+let head_sdf = FieldOperation.scale (lambda, lambda, lambda) (Field.interpolate_field grid_head);;
 
 let grid_hat = parse_sdf hat_path;;
 let hat_sdf = Field.interpolate_field grid_hat;;
@@ -66,14 +68,15 @@ let features_x9, features_y9, features_z9 = array_features.(9)
 (* let hat_scale_y = hat_scale_x *)
 (* let hat_scale_z = 1. *. hat_scale_x;; *)
 
-let hat_scale_x = 0.7
-let hat_scale_y = 0.8
-let hat_scale_z = 0.9;;
+let hat_scale_x = lambda *. 0.7
+let hat_scale_y = lambda *. 0.8
+let hat_scale_z = lambda *. 0.9;;
 
+(*
 print_float hat_scale_x;;
 print_float hat_scale_y;;
 print_float hat_scale_z;;
-
+ *)
 let test_box_hat = Field.boundaries hat_sdf;;
 
 let (test_xmin, test_xmax), (test_ymin, test_ymax), (test_zmin, test_zmax) = test_box_hat.Box.x, test_box_hat.Box.y, test_box_hat.Box.z;;
@@ -90,9 +93,9 @@ let () = print_float_list [xmin;xmax;ymin;ymax;zmin;zmax];;
 (*x of tip of the hat align with the nose bone -> point 28 *)
 let hat_center_x = (xmax +. xmin) /. 2.
 let hat_center_z = (zmax +. zmin) /. 2.
-let center_head_x = features_x28
+let center_head_x = lambda *. features_x28
 let make_hat_center_x = center_head_x -. hat_center_x ;;
-
+(*
 print_string "\n--hat z----\n";;
 print_float hat_center_z;;
 print_string "\n--hat z----\n";;
@@ -121,15 +124,16 @@ print_string "-----------\n";;
 print_float make_hat_center_x;;
 print_string "-----------\n";;
 
-(* let hat_translate_x =  make_hat_center_x;; *)
+ let hat_translate_x =  make_hat_center_x;; *)
 (* let hat_translate_y = (features_y31 -. ymin)/.1.5;; *)
 (* let hat_translate_x =  0. *)
 (* let hat_translate_y = 0.;; *)
 (* let hat_translate_z = 0. ;; *)
 (* z of tip of the hat align with the nose bone -> point 28 *)
 let hat_translate_x =  make_hat_center_x;;
-let hat_translate_y = features_y31 -. ymin -. 0.45 ;;
-let hat_translate_z = zmax -. features_z31 -. 0.37;;
+let hat_translate_y = lambda *. features_y31 -. ymin -. 0.45 ;;
+let hat_translate_z = zmax -. lambda *. features_z31 -. 0.37;;
+(*
 print_string "---z31-----\n";;
 print_float hat_translate_z;;
 print_string "-----------\n";;
@@ -139,7 +143,7 @@ translate _ y :
 ";
 print_float hat_translate_y;
 print_string "\n";;
-
+ *)
 
 
 let hat_modified_sdf = FieldOperation.translate (hat_translate_x, hat_translate_y, hat_translate_z) (FieldOperation.scale (hat_scale_x, hat_scale_y, hat_scale_z) hat_sdf)
@@ -163,7 +167,7 @@ let box_smurf =  Box.max_box (Field.boundaries head_sdf) (Field.boundaries hat_m
 let (xming, xmaxg), (yming, ymaxg), (zming, zmaxg) = box_smurf.Box.x, box_smurf.Box.y, box_smurf.Box.z;;
 
 (* let (xming, xmaxg), (yming, ymaxg), (zming, zmaxg) = (-. 1.3, 1.3), (-.1. , 2.5), (-. 1.3, 1.3);; *)
-
+(*
 print_string "\n";
 print_float xming;
 print_string "\n";
@@ -177,7 +181,7 @@ print_float ymaxg;
 print_string "\n";
 print_float zmaxg;
 print_string "\n";;
-
+*)
 let box = Box.box (-.1.5, -.1.5, -.1.5) (1.5, 1.5, 1.5)
 let mesh = SdfRenderMaker.render_a_mesh 0.0 union_sdf res box
 (* let mesh = SdfRenderMaker.render_a_mesh_fast 0.0 union_sdf res box *)
