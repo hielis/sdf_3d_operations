@@ -48,7 +48,7 @@ end = struct
       let x, y, z = Vector.get_x v, Vector.get_y v, Vector.get_z v in
       String.concat " " ("v "::(List.map string_of_float [x; y; z]))
     in
-    String.concat "\n \n" [String.concat "\n" (List.map vertice_to_string vertices); String.concat "\n" (List.map face_to_string faces)]
+    String.concat "\n \n" [String.concat "\n" (List.map vertice_to_string vertices); String.concat "\n" (List.rev (List.rev_map face_to_string faces))]
   ;;
 
   let render_a_mesh_fast iso f res box =
