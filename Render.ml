@@ -10,7 +10,6 @@ module Pile : sig
    val push : 'a pile -> 'a -> unit
    val pop : 'a pile -> 'a option
    val flush : 'a pile -> 'a list
-   val size : 'a pile -> int
 end = struct
      exception Empty
      type 'a pile = 'a list ref
@@ -25,20 +24,7 @@ end = struct
        p:= [];
        h
      ;;
-     let size p = List.length !p;;
 end
-
-(*debug*)
-
-
-let print_list_int = print_string "\n";
-                     let f a =
-                       print_int a;
-                       print_string ";"; in
-                       List.iter f;;
-
-(*end debug*)
-
 
 
 module SdfRenderMaker : sig
@@ -62,11 +48,13 @@ end = struct
       let x, y, z = Vector.get_x v, Vector.get_y v, Vector.get_z v in
       String.concat " " ("v "::(List.map string_of_float [x; y; z]))
     in
-    String.concat "\n \n" [String.concat "\n" (List.rev (List.rev_map vertice_to_string vertices)); String.concat "\n" (List.rev (List.rev_map face_to_string faces))]
+    String.concat "\n \n" [String.concat "\n" (List.map vertice_to_string vertices); String.concat "\n" (List.map face_to_string faces)]
   ;;
 
   let render_a_mesh_fast iso f res box =
     let r_x, r_y, r_z = res in
+    (*let tbl = IntTbl.create (r_x * r_y * r_z) in*)
+    
     let edge_pile = Pile.empty () in
     let cube_pile = Pile.empty () in
     let last_cube = ref (Box.box (0, 0, 0) (1, 1, 1)) in
@@ -122,9 +110,9 @@ end = struct
       done;
       !index
     in
-
+  
     let to_vect (cx, cy, cz) = Vector.vect ((float_of_int cx) *.h_x +. o_x) ((float_of_int cy) *.h_y +. o_y) ((float_of_int cz) *.h_z +. o_z) in
-
+  
     let compute_vertices_list cube_index vertices_list =
       let edge_index = Tables.edge_table.(cube_index) in
       let rec aux i acc m =
@@ -140,19 +128,25 @@ end = struct
       let l = (aux 0 [] edge_index 12) in
       l
     in
-
+  
+    let compute_face_index a b c =
+     ((1 lsl a) lor (1 lsl b) lor (1 lsl c))
+    in
+  
     let rec face_index_from_list acc = function [] -> acc | a::tl -> face_index_from_list (acc lor (1 lsl a)) tl in
-
+  
   let add_cubes_to_pile cube =
       let l = List.rev (Pile.flush edge_pile) in
       let xmin, _ = cube.Box.x
       and ymin, _ = cube.Box.y
       and zmin, _ = cube.Box.z in
       let f_i = face_index_from_list 0 l in
-      (*print_int f_i;
-      print_string "\n";
-       *)
+      (*
+      print_int f_i;
+      print_string " ";
+      *)
       if (f_i > 0) then (update_flushed ()) else ();
+  
       let lp = Tables.face_table.(f_i) in
       let which_cube = function
         |a when a = 1 -> if ((zmin + 1) > (r_z - 2)) then None
@@ -163,30 +157,37 @@ end = struct
                          else Some (Box.box (xmin, ymin + 1, zmin) (xmin + 1, ymin + 2, zmin + 1))
         |a when a = 4 -> if ((ymin - 1) < 0) then None
                          else (Some (Box.box (xmin, ymin - 1, zmin) (xmin + 1, ymin, zmin + 1)))
+  
         |a when a = 5 -> if ((xmin + 1) > (r_x - 2)) then None
                          else (
                            let b = Box.box (xmin + 1, ymin, zmin) (xmin + 2, ymin + 1, zmin + 1) in
               Some b)
+  
         |a when a = 6 -> if ((xmin - 1) < 0) then None
                          else (
                            let b = Box.box (xmin - 1, ymin, zmin) (xmin, ymin + 1, zmin + 1) in
               Some b)
+  
         |a when a = 7 -> if (((xmin - 1) < 0) || (ymin + 1 > r_y - 2)) then None
                          else (
                            let b = Box.box (xmin - 1, ymin + 1, zmin) (xmin, ymin + 2, zmin + 1) in
               Some b)
+  
         |a when a = 8 -> if (((xmin + 1) > r_x - 2) || (ymin + 1 > r_y - 2)) then None
                          else (
                            let b = Box.box (xmin + 1, ymin + 1, zmin) (xmin + 2, ymin + 2, zmin + 1) in
               Some b)
+  
         |a when a = 9 -> if (((xmin + 1) > r_x - 2) || (ymin - 1 > 0)) then None
                          else (
                            let b = Box.box (xmin + 1, ymin - 1, zmin) (xmin + 2, ymin, zmin + 1) in
               Some b)
+  
         |a when a = 10 -> if (((xmin - 1) < 0) || (ymin - 1 < 0)) then None
                          else (
                            let b = Box.box (xmin - 1, ymin - 1, zmin) (xmin, ymin, zmin + 1) in
               Some b)
+  
         |a when a = 11 -> if (((xmin - 1) < 0 || (ymin + 1 > r_y - 2) || (zmin - 1 < 0))) then None
                          else (
                            let b = Box.box (xmin - 1, ymin + 1, zmin - 1) (xmin, ymin + 2, zmin) in
@@ -266,20 +267,23 @@ end = struct
                          else (
                            let b = Box.box (xmin, ymin + 1, zmin + 1) (xmin + 1, ymin + 2, zmin + 2) in
               Some b)
+  
+  
+  
+  
         |_ -> None
       in
       let rec aux2 = function [] -> ()
                       |a::tl ->
                         (match (which_cube a) with
                         |None -> ()
-                        |Some c -> if (is_computed.(hash_cube c)) then ()
-                                   else (Pile.push cube_pile c);
+                        |Some c ->
+                                   Pile.push cube_pile c;
                                    aux2 tl
                         )
   
       in
-      if (List.length lp = 0) then ()
-      else (aux2 [1; 2; 3; 4; 5; 6(* ; 7; 8; 9; 10 ; 11 ; 12 ; 13; 14; 15 ; 16 ; 17; 18; 19; 20; 21; 22; 23; 24; 25*)])
+      aux2 lp
     in
   
     let compute_triangles_and_vertices triangles cube =
@@ -312,9 +316,6 @@ end = struct
            is_computed.(hash_cube c) <- true;
            last_cube := c;
            count := !count + 1;
-          (* print_string " a - a : ";
-           print_int (Pile.size cube_pile);
-           print_string "\n"; *)
            launch_computation (compute_triangles_and_vertices acc c)
          )
     in
