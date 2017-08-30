@@ -277,13 +277,14 @@ end = struct
                       |a::tl ->
                         (match (which_cube a) with
                         |None -> ()
-                        |Some c ->
-                                   Pile.push cube_pile c;
+                        |Some c ->  if (is_computed.(hash_cube c)) then ()
+                                   else (Pile.push cube_pile c);
                                    aux2 tl
                         )
   
       in
-      aux2 lp
+      if (List.length lp == 0) then ()
+      else aux2 [1; 2; 3; 4; 5; 6]
     in
   
     let compute_triangles_and_vertices triangles cube =
