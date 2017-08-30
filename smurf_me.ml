@@ -9,6 +9,13 @@ open Printf
 
 (*er  *)
 let print_float_list l = List.iter (printf "\n%f===") l;;
+let print_bbox sdf =
+    let box = Field.boundaries sdf in
+    let (xmin, xmax), (ymin, ymax), (zmin, zmax) = box.Box.x, box.Box.y, box.Box.z in
+    let () = print_string "\n---bbox---\n" in
+    print_float_list [xmin;xmax;ymin;ymax;zmin;zmax];;
+let max a b = if a > b then a else b;;
+
 (* end tiger  *)
 
 (* filepaths  *)
@@ -41,21 +48,31 @@ let array_features = to_vect_array ();;
 
 let grid_head  = parse_sdf head_path;;
 let _, (gx, gy, gz), (sx, sy, sz), s = grid_head
-let lambda = 8.0 /. (s *. (float_of_int (gx + gy + gz)));;
-print_string "=====head ===";;
-print_float lambda;;
-let head_sdf = FieldOperation.scale (lambda, lambda, lambda) (Field.interpolate_field grid_head);;
+let lambda = 2.0 /. (s *. float_of_int (max gz (max gx gy)));;
+
+let () = print_bbox (Field.interpolate_field grid_head);;
+
+let head_sdf = Field.interpolate_field grid_head;;
+
+(* tiger *)
+let box = Field.boundaries head_sdf
+let (xmin, xmax), (ymin, ymax), (zmin, zmax) = box.Box.x, box.Box.y, box.Box.z;;
+
+print_string "\n-- translate---\n"
+let () = print_float_list (List.map (fun x -> x*.lambda) [-.(xmax +. xmin)/.2.; -.(ymax +. ymin)/.2.; -.(zmax +.zmin)/.2.]);;
+
+print_string "\n--bbox of head lambda---\n"
+let () = print_float_list (List.map (fun x -> x*.lambda) [xmin-.(xmax +. xmin)/.2.;xmax-.(xmax +. xmin)/.2.;ymin-.(ymax +. ymin)/.2.;ymax-.(ymax +. ymin)/.2.;zmin-.(zmax +.zmin)/.2.;zmax-.(zmax +.zmin)/.2.]);;
+(* tiger *)
+
+let head_sdf = FieldOperation.translate (-.(xmax +. xmin)/.2., -.(ymax +. ymin)/.2., -.(zmax +.zmin)/.2.) (Field.interpolate_field grid_head);;
+let head_sdf = FieldOperation.scale (lambda, lambda, lambda) head_sdf;;
+
+let test_box_hat = Field.boundaries head_sdf;;
 
 let grid_hat = parse_sdf hat_path;;
 let _, (hat_gx, hat_gy, hat_gz), (hat_sx, hat_sy, hat_sz), hat_s = grid_hat
-let lambda_hat = 8.0 /. (hat_s *. (float_of_int (hat_gx + hat_gy + hat_gz)));;
-print_string "====hat 0=====\n";;
-print_float lambda_hat;;
-print_string "====hat 1=====\n";;
-let () = print_float_list [float_of_int hat_gx;float_of_int hat_gy;float_of_int hat_gz;hat_sx;hat_sy;hat_sz;hat_s];;
-print_string "====hat 2=====\n";;
-
-(* let hat_sdf = FieldOperation.scale (lambda_hat, lambda_hat, lambda_hat) (Field.interpolate_field grid_hat);; *)
+let lambda_hat = 2.0 /. (hat_s *. (float_of_int (max hat_gx (max hat_gy hat_gz))));;
 let hat_sdf = Field.interpolate_field grid_hat;;
 
 
@@ -85,22 +102,14 @@ let features_x9, features_y9, features_z9 = array_features.(9)
 (* let hat_scale_y = lambda *. 0.8 *)
 (* let hat_scale_z = lambda *. 0.9;; *)
 
-(*
-print_float hat_scale_x;;
-print_float hat_scale_y;;
-print_float hat_scale_z;;
-*)
-
 let test_box_hat = Field.boundaries hat_sdf;;
 
 let (test_xmin, test_xmax), (test_ymin, test_ymax), (test_zmin, test_zmax) = test_box_hat.Box.x, test_box_hat.Box.y, test_box_hat.Box.z;;
 
-print_string "--bbox of hat---"
-let () = print_float_list [test_xmin;test_xmax;test_ymin;test_ymax;test_zmin;test_zmax];;
-
 let hat_sdf = FieldOperation.translate (-.(test_xmax +. test_xmin)/.2., -.(test_ymax +. test_ymin)/.2., -.(test_zmax +.test_zmin)/.2.) hat_sdf;;
 let hat_sdf = FieldOperation.scale (lambda_hat, lambda_hat, lambda_hat) (hat_sdf);;
-let hat_sdf = FieldOperation.translate (0., -1.3, 0.) hat_sdf;;
+let hat_up_translate = -0.8;;
+let hat_sdf = FieldOperation.translate (0., hat_up_translate, 0.) hat_sdf;;
 
 (* let box_hat = Field.boundaries (FieldOperation.scale (hat_scale_x, hat_scale_y, hat_scale_z) hat_sdf) *)
 
@@ -173,7 +182,7 @@ let hat_sdf = FieldOperation.translate (0., -1.3, 0.) hat_sdf;;
 let union_sdf = (FieldOperation.union hat_sdf head_sdf)
 
 (* render and export : *)
-let res = (300, 300, 300)
+let res = (100, 100, 100)
 
 (* let box_smurf =  Box.max_box (Field.boundaries head_sdf) (Field.boundaries hat_modified_sdf) *)
 
@@ -181,9 +190,10 @@ let res = (300, 300, 300)
 
 (* let (xming, xmaxg), (yming, ymaxg), (zming, zmaxg) = (-. 1.3, 1.3), (-.1. , 2.5), (-. 1.3, 1.3);; *)
 
-let box = Box.box (-.2.0, -.2.0, -.2.0) (2.0, 3.0, 2.0)
+let box = Box.box (-.1.0, -1.0 +. hat_up_translate, -.1.0) (1.0, 1.0, 1.0)
 (* let mesh = SdfRenderMaker.render_a_mesh 0.0 union_sdf res box;; *)
-let mesh = SdfRenderMaker.render_a_mesh_fast 0.0 union_sdf res box;;
+(* let mesh = SdfRenderMaker.render_a_mesh_fast 0.0 union_sdf res box;; *)
+let mesh = SdfRenderMaker.render_a_mesh 0.0 union_sdf res box;;
 
 let oc = open_out pathout;;
 fprintf oc "%s" (SdfRenderMaker.export_to_obj mesh);;
