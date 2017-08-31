@@ -61,17 +61,7 @@ let head_sdf = FieldOperation.scale (head_scale, head_scale, head_scale) head_sd
 
 let () = print_bbox head_sdf;;
 
-(* transform to -1 to 1 box *)
-let grid_hat = parse_sdf hat_path;;
-let _, (hat_gx, hat_gy, hat_gz), (hat_sx, hat_sy, hat_sz), hat_s = grid_hat
-let lambda_hat = 2.0 /. (hat_s *. (float_of_int (max hat_gx (max hat_gy hat_gz))));;
-let hat_sdf = Field.interpolate_field grid_hat;;
-
-(* build planes and boxes *)
-
-(* do operations : *)
-
-(*scale and translate the hat*)
+(* read from facial features *)
 let transform_features_coor f trans_x trans_y trans_z scale=
     let x, y, z = f in
     let l = Array.of_list (List.map (fun x -> x*.scale) [x+.trans_x;y+.trans_y;z+.trans_z]) in
@@ -86,11 +76,17 @@ let features_x45, features_y45, features_z45 = head_trans_f array_features.(45);
 (* tip of a nose *)
 let features_x33, features_y33, features_z33 = head_trans_f array_features.(33);;
 
-(* transform to -1 to 1 box *)
 let head_length = 2.*.(features_x45 -. features_x36);;
 print_string "\nhead head_length?\n";;
 print_float head_length;;
 
+(* parse hat *)
+let grid_hat = parse_sdf hat_path;;
+let _, (hat_gx, hat_gy, hat_gz), (hat_sx, hat_sy, hat_sz), hat_s = grid_hat
+let lambda_hat = 2.0 /. (hat_s *. (float_of_int (max hat_gx (max hat_gy hat_gz))));;
+let hat_sdf = Field.interpolate_field grid_hat;;
+
+(* transform to -1 to 1 box *)
 let bbox =  Field.boundaries hat_sdf;;
 let (xmin, xmax), (ymin, ymax), (zmin, zmax) = box.Box.x, box.Box.y, box.Box.z;;
 let hat_sdf = FieldOperation.translate (-.(xmax +. xmin)/.2., -.(ymax +. ymin)/.2., -.(zmax +.zmin)/.2.) hat_sdf;;
@@ -119,7 +115,7 @@ let union_sdf = union_feature features_x33 features_y33 features_z33 union_sdf;;
 let union_sdf = union_feature features_x36 features_y36 features_z36 union_sdf;;
 let union_sdf = union_feature features_x45 features_y45 features_z45 union_sdf;;
 
-let box = Box.box (-1.3, -1.0 +. hat_translate_y, -.1.3) (1.3, 1.3, 1.3)
+let box = Box.box (-1.3, -1.3 +. hat_translate_y, -.1.3) (1.3, 1.0, 1.3 +. hat_translate_z)
 let mesh = SdfRenderMaker.render_a_mesh_fast 0.0 union_sdf res box;;
 
 let oc = open_out pathout;;
