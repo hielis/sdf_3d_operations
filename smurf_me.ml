@@ -54,6 +54,7 @@ let head_trans_x = -.(xmax +. xmin)/.2.;;
 let head_trans_y = -.(ymax +. ymin)/.2.;;
 let head_trans_z = -.(zmax +. zmin)/.2.;;
 let head_scale = 2.0 /. (s *. float_of_int (max gz (max gx gy)));;
+(* let head_scale = 8.0 /. (s *. float_of_int (gz+gx+gy));; *)
 
 let head_sdf = FieldOperation.translate (head_trans_x, head_trans_y, head_trans_z) (Field.interpolate_field grid_head);;
 
@@ -76,7 +77,7 @@ let features_x45, features_y45, features_z45 = head_trans_f array_features.(45);
 (* tip of a nose *)
 let features_x33, features_y33, features_z33 = head_trans_f array_features.(33);;
 
-let head_length = 2.*.(features_x45 -. features_x36);;
+let head_length = 1.7*.(features_x45 -. features_x36);;
 print_string "\nhead head_length?\n";;
 print_float head_length;;
 
@@ -84,6 +85,8 @@ print_float head_length;;
 let grid_hat = parse_sdf hat_path;;
 let _, (hat_gx, hat_gy, hat_gz), (hat_sx, hat_sy, hat_sz), hat_s = grid_hat
 let lambda_hat = 2.0 /. (hat_s *. (float_of_int (max hat_gx (max hat_gy hat_gz))));;
+(* let lambda_hat = 8.0 /. (hat_s *. (float_of_int (hat_gx + hat_gy + hat_gz)));; *)
+
 let hat_sdf = Field.interpolate_field grid_hat;;
 
 (* transform to -1 to 1 box *)
@@ -99,7 +102,7 @@ let hat_translate_z = features_z33 +. head_length*.1. -. 0.1;;
 
 let hat_translated_sdf = FieldOperation.translate (hat_translate_x, hat_translate_y, hat_translate_z)  hat_sdf;;
 
-let union_sdf = (FieldOperation.union head_sdf hat_translated_sdf)
+let union_sdf = (FieldOperation.smooth_union (128.0) head_sdf hat_translated_sdf)
 
 (* render and export : *)
 let res = (200, 200, 200)
@@ -111,11 +114,12 @@ let union_feature f_x f_y f_z sdf =
     FieldOperation.union sdf sphere;;
 
 (* tip of the nose *)
-let union_sdf = union_feature features_x33 features_y33 features_z33 union_sdf;;
-let union_sdf = union_feature features_x36 features_y36 features_z36 union_sdf;;
-let union_sdf = union_feature features_x45 features_y45 features_z45 union_sdf;;
+(* let union_sdf = union_feature features_x33 features_y33 features_z33 union_sdf;; *)
+(* let union_sdf = union_feature features_x36 features_y36 features_z36 union_sdf;; *)
+(* let union_sdf = union_feature features_x45 features_y45 features_z45 union_sdf;; *)
 
 let box = Box.box (-1.3, -1.3 +. hat_translate_y, -.1.3) (1.3, 1.0, 1.3 +. hat_translate_z)
+(* let box = Box.box (-2.0, -2.0, -.2.0) (2.0, 2.0, 2.0) *)
 let mesh = SdfRenderMaker.render_a_mesh_fast 0.0 union_sdf res box;;
 
 let oc = open_out pathout;;

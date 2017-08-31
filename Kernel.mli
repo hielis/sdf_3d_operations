@@ -63,6 +63,7 @@ sig
   val rotate : float -> float * float * float -> Field.t -> Field.t
   val scale : Field.v * Field.v * Field.v -> Field.t -> Field.t
   val union : Field.t -> Field.t -> Field.t
+  val smooth_union : float -> Field.t -> Field.t -> Field.t
   val intersection : Field.t -> Field.t -> Field.t
   val substraction : Field.t -> Field.t -> Field.t
   val morph : float -> Field.t -> Field.t -> Field.t

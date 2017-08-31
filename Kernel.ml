@@ -154,6 +154,7 @@ module FieldOperation : sig
   val rotate : float -> (float * float * float) -> Field.t -> Field.t
   val scale : (Field.v * Field.v * Field.v) -> Field.t -> Field.t
   val union : Field.t -> Field.t -> Field.t
+  val smooth_union : float -> Field.t -> Field.t -> Field.t
   val intersection : Field.t -> Field.t -> Field.t
   val substraction : Field.t -> Field.t -> Field.t
   val morph : float -> Field.t -> Field.t -> Field.t
@@ -232,6 +233,20 @@ end = struct
   let scale lambda = Field.use_a_function_right (scale_func lambda) (scale_bound lambda);;
 
   let union = Field.use_a_binary_op min Box.max_box;;
+  let smooth_union factor =
+      let smooth_func a b =
+          if (abs_float (a) > 0.9 *. constant) then (min a b)
+          else if (abs_float (b) > 0.9 *. constant) then (min a b)
+          else if (abs_float (a -. b) > 0.2) then (min a b)
+          else (
+          let res = (exp (-.factor*.a)) +. (exp (-.factor*.b)) in
+          (-. (log (res)) /. factor)
+          )
+          (* let c = a**factor in *)
+          (* let d = b**factor in *)
+          (* ((c*.d)/.(c+.d)) ** (1.0/.factor) *)
+      in
+      Field.use_a_binary_op smooth_func Box.max_box;;
   let substract_op a b = max a (-. b);;
   let intersection = Field.use_a_binary_op max Box.max_box;;
   let substraction = Field.use_a_binary_op substract_op Box.max_box;;
